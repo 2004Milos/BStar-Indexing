@@ -139,26 +139,220 @@ public:
 		Node* sibling = getFreeSibling(m, desno);
 		int posInParent = parent->findChlidForKey(keys[0]);
 
+		
+		vector<uint64_t> keyUnion = vector<uint64_t>();
+		vector<Data*> dataUnion = vector<Data*>();
+
 		if (sibling) {
-			int insPos;
+
 			if (desno) {
-				vector<uint64_t> keyUnion;
-				vector<Data*> dataUnion;
-
-				for (int i = 0; i < keys.size(); i++) {
-					keyUnion.push_back(keys[i]);
-					dataUnion.push_back(data[i]);
+				for (int i = 0; i < tr->keys.size(); i++) {
+					keyUnion.push_back(tr->keys[i]);
+					dataUnion.push_back(tr->data[i]);
 				}
-
-				keyUnion.push_back(parent->keys[posInParent]);
-				dataUnion.push_back(parent->data[posInParent]);
+				keyUnion.push_back(tr->parent->keys[posInParent]);
+				dataUnion.push_back(tr->parent->data[posInParent]);
 
 				for (int i = 0; i < sibling->keys.size(); i++) {
 					keyUnion.push_back(sibling->keys[i]);
 					dataUnion.push_back(sibling->data[i]);
 				}
 
+			}
+			else {
+				for (int i = 0; i < sibling->keys.size(); i++) {
+					keyUnion.push_back(sibling->keys[i]);
+					dataUnion.push_back(sibling->data[i]);
+				}
+				keyUnion.push_back(tr->parent->keys[posInParent - 1]);
+				dataUnion.push_back(tr->parent->data[posInParent - 1]);
+				for (int i = 0; i < tr->keys.size(); i++) {
+					keyUnion.push_back(tr->keys[i]);
+					dataUnion.push_back(tr->data[i]);
+				}
+			}
+			int64_t mid = keyUnion[keyUnion.size() / 2];
+			Data* d = dataUnion[dataUnion.size() / 2];
 
+
+			if (desno) {
+				tr->parent->keys[posInParent] = mid;
+				tr->parent->data[posInParent] = d;
+
+				tr->keys.clear();
+				tr->data.clear();
+				for (int i = 0; i < keyUnion.size() / 2; i++) {
+					tr->keys.push_back(keyUnion[i]);
+					tr->data.push_back(dataUnion[i]);
+				}
+
+				sibling->keys.clear();
+				sibling->data.clear();
+				for (int i = keyUnion.size() / 2 + 1; i < keyUnion.size(); i++) {
+					sibling->keys.push_back(keyUnion[i]);
+					sibling->data.push_back(dataUnion[i]);
+				}
+
+				if (tr->children.size() > 0) {
+					sibling->children.insert(sibling->children.begin(), tr->children[tr->children.size() - 1]);
+					tr->children.pop_back();
+				}
+
+				return;
+
+			}
+			else {//prelivanje u levo
+
+				tr->parent->keys[posInParent - 1] = mid;
+				tr->parent->data[posInParent - 1] = d;
+
+
+				sibling->keys.clear();
+				sibling->data.clear();
+				for (int i = 0; i < keyUnion.size() / 2; i++)
+				{
+					sibling->keys.push_back(keyUnion[i]);
+					sibling->data.push_back(dataUnion[i]);
+				}
+
+				tr->keys.clear();
+				tr->data.clear();
+				for (int i = keyUnion.size() / 2 + 1; i < keyUnion.size(); i++) {
+					tr->keys.push_back(keyUnion[i]);
+					tr->data.push_back(dataUnion[i]);
+				}
+
+				if (tr->children.size() > 0) {
+					tr->children.push_back(sibling->children[0]);
+					sibling->children.erase(sibling->children.begin());
+				}
+
+				return;
+			}
+
+			return;
+		}
+		else {
+			//nema mesta u braci - lomi se 2 u 3, i dodaje se dodatan kljuc u parent
+			bool desno = posInParent < tr->parent->children.size() - 1;
+			Node* sibling = desno ? tr->parent->children[posInParent + 1] : tr->parent->children[posInParent - 1];
+			vector<Node*> childrenUnion = vector<Node*>();
+
+			if (desno) {
+				for (int i = 0; i < tr->keys.size(); i++) {
+					keyUnion.push_back(tr->keys[i]);
+					dataUnion.push_back(tr->data[i]);
+				}
+				keyUnion.push_back(tr->parent->keys[posInParent]);
+				dataUnion.push_back(tr->parent->data[posInParent]);
+
+				for (int i = 0; i < sibling->keys.size(); i++) {
+					keyUnion.push_back(sibling->keys[i]);
+					dataUnion.push_back(sibling->data[i]);
+				}
+
+				if (tr->children.size() > 0) {
+					for (int i = 0; i < tr->children.size(); i++) {
+						childrenUnion.push_back(tr->children[i]);
+					}
+					for (int i = 0; i < sibling->children.size(); i++) {
+						childrenUnion.push_back(sibling->children[i]);
+					}
+				}
+			}
+			else { //nema desnog brata, nego ima levog brata koji je pritom pun
+				for (int i = 0; i < sibling->keys.size(); i++) {
+					keyUnion.push_back(sibling->keys[i]);
+					dataUnion.push_back(sibling->data[i]);
+				}
+				keyUnion.push_back(tr->parent->keys[posInParent - 1]);
+				dataUnion.push_back(tr->parent->data[posInParent - 1]);
+				for (int i = 0; i < tr->keys.size(); i++) {
+					keyUnion.push_back(tr->keys[i]);
+					dataUnion.push_back(tr->data[i]);
+				}
+
+				if (tr->children.size() > 0) { //listovi su na istom nivou => ako jedan brat ima sinove, ima i drugi
+					for (int i = 0; i < sibling->children.size(); i++) {
+						childrenUnion.push_back(sibling->children[i]);
+					}
+					for (int i = 0; i < tr->children.size(); i++) {
+						childrenUnion.push_back(tr->children[i]);
+					}
+				}
+			}
+
+			int m1 = floor((2 * m - 2) / 3);
+			int m2 = m1 + floor((2 * m - 1) / 3) + 1;
+			//UBACIVANJE U PARENT, I DELJENJE
+
+			tr->keys.clear();
+			tr->data.clear();
+
+			sibling->keys.clear();
+			sibling->data.clear();
+
+			Node* newn = new Node(tr->parent);
+			sibling = new Node(tr->parent);
+
+			for (int i = 0; i < m1; i++) {
+				tr->keys.push_back(keyUnion[i]);
+				tr->data.push_back(dataUnion[i]);
+			}
+
+			for (int i = m1 + 1; i < m2; i++) {
+				newn->keys.push_back(keyUnion[i]);
+				newn->data.push_back(dataUnion[i]);
+			}
+
+			for (int i = m2 + 1; i < keyUnion.size(); i++) {
+				sibling->keys.push_back(keyUnion[i]);
+				sibling->data.push_back(dataUnion[i]);
+			}
+
+			if (tr->children.size() > 0) {
+				tr->children.clear();
+				newn->children.clear();
+				sibling->children.clear();
+
+				for (int i = 0; i < m1; i++) {
+					tr->children.push_back(childrenUnion[i]);
+				}
+
+				for (int i = m1 + 1; i < m2; i++) {
+					newn->children.push_back(childrenUnion[i]);
+				}
+
+				for (int i = m2 + 1; i < childrenUnion.size(); i++) {
+					sibling->children.push_back(childrenUnion[i]);
+				}
+			}
+
+			if (desno) { //tr je levi sin, a sibling desni
+				tr->parent->keys[posInParent - 1] = keyUnion[m1];
+				tr->parent->data[posInParent - 1] = dataUnion[m1];
+
+				tr->parent->keys.insert(tr->parent->keys.begin() + posInParent, keyUnion[m2]);
+				tr->parent->data.insert(tr->parent->data.begin() + posInParent, dataUnion[m2]);
+				tr->parent->children[posInParent] = tr;
+				tr->parent->children[posInParent + 1] = newn;
+				tr->parent->children.push_back(sibling);
+			}
+			else { //tr je desno a sibling levo
+				tr->parent->keys[posInParent - 1] = keyUnion[m1];
+				tr->parent->data[posInParent - 1] = dataUnion[m1];
+				tr->parent->keys.insert(tr->parent->keys.begin() + posInParent, keyUnion[m2]);
+				tr->parent->data.insert(tr->parent->data.begin() + posInParent, dataUnion[m2]);
+
+				tr->parent->children[posInParent - 1] = tr;
+				tr->parent->children[posInParent] = newn;
+				tr->parent->children.push_back(sibling);
+			}
+
+
+
+			if (tr->parent->overflow(m)) {
+				tr->parent->fix(m, root);
 			}
 		}
 	
