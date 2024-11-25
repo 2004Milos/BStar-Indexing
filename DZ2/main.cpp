@@ -21,6 +21,10 @@ public:
 
 class Node;
 static stack<Node*>* splitStack;
+static stack<Node*>* deleteStack;
+
+static stack<Node*>* spajanjeStackNode;
+static stack<int>* spajanjeStackInt;
 
 class Node {
 public:
@@ -33,6 +37,10 @@ public:
 
 	Node(Node* parent) : parent(parent), keys(), data(), children() {
 		if(!splitStack) splitStack = new stack<Node*>();
+		if(!deleteStack) deleteStack = new stack<Node*>();
+		if(!spajanjeStackNode) spajanjeStackNode = new stack<Node*>();
+		if(!spajanjeStackInt) spajanjeStackInt = new stack<int>();
+
 	}
 
 	bool imaMesta(int m) {
@@ -409,6 +417,12 @@ public:
 				parent->data[posInParent] = parent->children[posInParent + 1]->data[0];
 				parent->children[posInParent + 1]->keys.erase(parent->children[posInParent + 1]->keys.begin());
 				parent->children[posInParent + 1]->data.erase(parent->children[posInParent + 1]->data.begin());
+
+				if (children.size() > 0) {
+					this->children.push_back(parent->children[posInParent + 1]->children[0]);
+					parent->children[posInParent + 1]->children[0]->parent = this;
+					parent->children[posInParent + 1]->children.erase(parent->children[posInParent + 1]->children.begin());
+				}
 				return true;
 			}
 		if(posInParent-1 >= 0)
@@ -419,6 +433,12 @@ public:
 				parent->data[posInParent - 1] = parent->children[posInParent - 1]->data[parent->children[posInParent - 1]->data.size() - 1];
 				parent->children[posInParent - 1]->keys.pop_back();
 				parent->children[posInParent - 1]->data.pop_back();
+
+				if (children.size() > 0) {
+					this->children.insert(this->children.begin(), parent->children[posInParent - 1]->children[parent->children[posInParent - 1]->children.size() - 1]);
+					parent->children[posInParent - 1]->children[parent->children[posInParent - 1]->children.size() - 1]->parent = this;
+					parent->children[posInParent - 1]->children.pop_back();
+				}
 				return true;
 			}
 		if(posInParent+2 < parent->children.size())
@@ -430,12 +450,24 @@ public:
 				parent->children[posInParent + 1]->keys.erase(parent->children[posInParent + 1]->keys.begin());
 				parent->children[posInParent + 1]->data.erase(parent->children[posInParent + 1]->data.begin());
 
+				if(children.size() > 0) {
+					this->children.push_back(parent->children[posInParent + 1]->children[0]);
+					parent->children[posInParent + 1]->children[0]->parent = this;
+					parent->children[posInParent + 1]->children.erase(parent->children[posInParent + 1]->children.begin());
+				}
+
 				parent->children[posInParent + 1]->keys.push_back(parent->keys[posInParent + 1]);
 				parent->children[posInParent + 1]->data.push_back(parent->data[posInParent + 1]);
 				parent->keys[posInParent + 1] = parent->children[posInParent + 2]->keys[0];
 				parent->data[posInParent + 1] = parent->children[posInParent + 2]->data[0];
 				parent->children[posInParent + 2]->keys.erase(parent->children[posInParent + 2]->keys.begin());
 				parent->children[posInParent + 2]->data.erase(parent->children[posInParent + 2]->data.begin());
+				
+				if(children.size() > 0) {
+					parent->children[posInParent + 1]->children.push_back(parent->children[posInParent + 2]->children[0]);
+					parent->children[posInParent + 2]->children[0]->parent = parent->children[posInParent + 1];
+					parent->children[posInParent + 2]->children.erase(parent->children[posInParent + 2]->children.begin());
+				}
 
 				return true;
 			}
@@ -448,6 +480,12 @@ public:
 				parent->children[posInParent - 1]->keys.pop_back();
 				parent->children[posInParent - 1]->data.pop_back();
 
+				if (children.size() > 0) {
+					this->children.insert(this->children.begin(), parent->children[posInParent - 1]->children[parent->children[posInParent - 1]->children.size() - 1]);
+					parent->children[posInParent - 1]->children[parent->children[posInParent - 1]->children.size() - 1]->parent = this;
+					parent->children[posInParent - 1]->children.pop_back();
+				}
+
 				parent->children[posInParent - 1]->keys.insert(parent->children[posInParent - 1]->keys.begin(), parent->keys[posInParent - 2]);
 				parent->children[posInParent - 1]->data.insert(parent->children[posInParent - 1]->data.begin(), parent->data[posInParent - 2]);
 				parent->keys[posInParent - 2] = parent->children[posInParent - 2]->keys[parent->children[posInParent - 2]->keys.size() - 1];
@@ -455,17 +493,101 @@ public:
 				parent->children[posInParent - 2]->keys.pop_back();
 				parent->children[posInParent - 2]->data.pop_back();
 
+				if(children.size() > 0) {
+					parent->children[posInParent - 1]->children.insert(parent->children[posInParent - 1]->children.begin(), parent->children[posInParent - 2]->children[parent->children[posInParent - 2]->children.size() - 1]);
+					parent->children[posInParent - 2]->children[parent->children[posInParent - 2]->children.size() - 1]->parent = parent->children[posInParent - 1];
+					parent->children[posInParent - 2]->children.pop_back();
+				}
 
 				return true;
 			}
 		return false; //nije mogla pozajmica
 	}
 
-	void spajanje(int m, int posInParent) { //spajanje 3 u 2, radi se iskljucivo nad listovima
+	void spajanje(int m, int posInParent) { //spajanje 3 u 2
 		vector<uint64_t> keyUnion = vector<uint64_t>();
 		vector<Data*> dataUnion = vector<Data*>();
 		vector<Node*> childrenUnion = vector<Node*>();
-		if (posInParent - 1 >= 0 && posInParent < parent->children.size()-1) { //levi this desni
+
+
+		if (!(parent->parent) && parent->children.size()==2)//sazima se 2 u 1 - novi koren
+		{
+			if (this == parent->children[0]) {
+				for (int i = 0; i < keys.size(); i++) {
+					keyUnion.push_back(keys[i]);
+					dataUnion.push_back(data[i]);
+				}
+				keyUnion.push_back(parent->keys[0]);
+				dataUnion.push_back(parent->data[0]);
+				for (int i = 0; i < parent->children[1]->keys.size(); i++) {
+					keyUnion.push_back(parent->children[1]->keys[i]);
+					dataUnion.push_back(parent->children[1]->data[i]);
+				}
+
+				for (int i = 0; i < children.size(); i++) {
+					childrenUnion.push_back(children[i]);
+				}
+				for (int i = 0; i < parent->children[1]->children.size(); i++) {
+					childrenUnion.push_back(parent->children[1]->children[i]);
+				}
+
+				parent->keys.clear();
+				parent->data.clear();
+				for(int i = 0; i < keyUnion.size(); i++) {
+					parent->keys.push_back(keyUnion[i]);
+					parent->data.push_back(dataUnion[i]);
+				}
+				parent->children.clear();
+				for (int i = 0; i < childrenUnion.size(); i++) {
+					parent->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent;
+				}
+			}
+			else {
+				for (int i = 0; i < parent->children[0]->keys.size(); i++) {
+					keyUnion.push_back(parent->children[0]->keys[i]);
+					dataUnion.push_back(parent->children[0]->data[i]);
+				}
+				keyUnion.push_back(parent->keys[0]);
+				dataUnion.push_back(parent->data[0]);
+				for (int i = 0; i < keys.size(); i++) {
+					keyUnion.push_back(keys[i]);
+					dataUnion.push_back(data[i]);
+				}
+
+				for (int i = 0; i < parent->children[0]->children.size(); i++) {
+					childrenUnion.push_back(parent->children[0]->children[i]);
+				}
+				for (int i = 0; i < children.size(); i++) {
+					childrenUnion.push_back(children[i]);
+				}
+
+				parent->keys.clear();
+				parent->data.clear();
+				for (int i = 0; i < keyUnion.size(); i++) {
+					parent->keys.push_back(keyUnion[i]);
+					parent->data.push_back(dataUnion[i]);
+				}
+				parent->children.clear();
+				for (int i = 0; i < childrenUnion.size(); i++) {
+					parent->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent;
+				}
+			}
+			
+		}
+		else if (parent->underflow(m)) {
+			if (parent->parent) {
+				bool pozajmio = parent->pozajmica(m, posInParent);
+				if (pozajmio) return; //Brat je imao kljuc da pozajmi
+			}
+			//Spajanje
+			spajanjeStackNode->push(parent);
+			spajanjeStackInt->push(-1);
+			return;
+
+		}
+		else if (posInParent - 1 >= 0 && posInParent < parent->children.size()-1) { //levi this desni
 			for (int i = 0; i < parent->children[posInParent - 1]->keys.size(); i++) {
 				keyUnion.push_back(parent->children[posInParent - 1]->keys[i]);
 				dataUnion.push_back(parent->children[posInParent - 1]->data[i]);
@@ -481,6 +603,16 @@ public:
 			for (int i = 0; i < parent->children[posInParent + 1]->keys.size(); i++) {
 				keyUnion.push_back(parent->children[posInParent + 1]->keys[i]);
 				dataUnion.push_back(parent->children[posInParent + 1]->data[i]);
+			}
+
+			for (int i = 0; i < parent->children[posInParent - 1]->children.size(); i++) {
+				childrenUnion.push_back(parent->children[posInParent - 1]->children[i]);
+			}
+			for (int i = 0; i < children.size(); i++) {
+				childrenUnion.push_back(children[i]);
+			}
+			for(int i = 0; i < parent->children[posInParent + 1]->children.size(); i++) {
+				childrenUnion.push_back(parent->children[posInParent + 1]->children[i]);
 			}
 
 			int mid = keyUnion.size() / 2;
@@ -508,13 +640,17 @@ public:
 			}
 
 			if (children.size() > 0) {
-				for(int i = 0; i < children.size(); i++) {
-					childrenUnion.push_back(children[i]);
-				}
-				for (int i = 0; i < parent->children[posInParent + 1]->children.size(); i++) {
-					childrenUnion.push_back(parent->children[posInParent + 1]->children[i]);
-				}
+				parent->children[posInParent - 1]->children.clear();
 				parent->children[posInParent]->children.clear();
+				for (int i = 0; i < childrenUnion.size()/2; i++) {
+					parent->children[posInParent - 1]->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent->children[posInParent - 1];
+				}
+				for (int i = childrenUnion.size() / 2; i < childrenUnion.size(); i++) {
+					parent->children[posInParent]->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent->children[posInParent];
+				}
+
 			}
 		}
 		else if (posInParent - 1 < 0) { //this, desni, desnji
@@ -533,6 +669,16 @@ public:
 			for (int i = 0; i < parent->children[posInParent + 2]->keys.size(); i++) {
 				keyUnion.push_back(parent->children[posInParent + 2]->keys[i]);
 				dataUnion.push_back(parent->children[posInParent + 2]->data[i]);
+			}
+
+			for (int i = 0; i < children.size(); i++) {
+				childrenUnion.push_back(children[i]);
+			}
+			for (int i = 0; i < parent->children[posInParent + 1]->children.size(); i++) {
+				childrenUnion.push_back(parent->children[posInParent + 1]->children[i]);
+			}
+			for (int i = 0; i < parent->children[posInParent + 2]->children.size(); i++) {
+				childrenUnion.push_back(parent->children[posInParent + 2]->children[i]);
 			}
 
 			int mid = keyUnion.size() / 2;
@@ -558,6 +704,19 @@ public:
 				parent->children[posInParent + 1]->keys.push_back(keyUnion[i]);
 				parent->children[posInParent + 1]->data.push_back(dataUnion[i]);
 			}
+
+			if (children.size() > 0) {
+				parent->children[posInParent]->children.clear();
+				parent->children[posInParent+1]->children.clear();
+				for (int i = 0; i < childrenUnion.size() / 2; i++) {
+					parent->children[posInParent]->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent->children[posInParent];
+				}
+				for (int i = childrenUnion.size() / 2; i < childrenUnion.size(); i++) {
+					parent->children[posInParent+1]->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent->children[posInParent+1];
+				}
+			}
 		}
 		else { //ovo je ok - levlji, levi, this
 			for (int i = 0; i < parent->children[posInParent - 2]->keys.size(); i++) {
@@ -575,6 +734,16 @@ public:
 			for (int i = 0; i < keys.size(); i++) {
 				keyUnion.push_back(keys[i]);
 				dataUnion.push_back(data[i]);
+			}
+
+			for (int i = 0; i < parent->children[posInParent - 2]->children.size(); i++) {
+				childrenUnion.push_back(parent->children[posInParent - 2]->children[i]);
+			}
+			for (int i = 0; i < parent->children[posInParent - 1]->children.size(); i++) {
+				childrenUnion.push_back(parent->children[posInParent - 1]->children[i]);
+			}
+			for (int i = 0; i < children.size(); i++) {
+				childrenUnion.push_back(children[i]);
 			}
 
 			int mid = keyUnion.size() / 2;
@@ -600,8 +769,36 @@ public:
 				parent->children[posInParent-1]->keys.push_back(keyUnion[i]);
 				parent->children[posInParent-1]->data.push_back(dataUnion[i]);
 			}
+
+			if(children.size() > 0) {
+				parent->children[posInParent - 2]->children.clear();
+				parent->children[posInParent-1]->children.clear();
+				for (int i = 0; i < childrenUnion.size() / 2; i++) {
+					parent->children[posInParent - 2]->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent->children[posInParent - 2];
+				}
+				for (int i = childrenUnion.size() / 2; i < childrenUnion.size(); i++) {
+					parent->children[posInParent-1]->children.push_back(childrenUnion[i]);
+					childrenUnion[i]->parent = parent->children[posInParent-1];
+				}
+			}
 		}
 
+
+		if (parent->underflow(m)) {
+			if (parent->parent) {
+				bool pozajmio = parent->pozajmica(m, posInParent);
+				if (pozajmio) return; //Brat je imao kljuc da pozajmi
+			}
+
+			//nema kljuca za pozajmicu kod brace
+			//spajanje levi+this+desni
+
+
+			spajanjeStackInt->push(-1);
+			spajanjeStackNode->push(parent);
+			return;
+		}
 
 	}
 
@@ -636,7 +833,8 @@ public:
 			keys.insert(keys.begin() + pos, succ->keys[0]);
 			data.insert(data.begin() + pos, succ->data[0]);
 
-			succ->Delete(m, 0);
+
+			deleteStack->push(succ);
 			return;
 		}
 
@@ -657,6 +855,14 @@ public:
 			//nema kljuca za pozajmicu kod brace
 			//spajanje levi+this+desni
 			spajanje(m, posInParent);
+			while (!spajanjeStackInt->empty()) {
+				int pos = spajanjeStackInt->top();
+				spajanjeStackInt->pop();
+				Node* n = spajanjeStackNode->top();
+				spajanjeStackNode->pop();
+
+				n->spajanje(m, pos);
+			}
 			return;
 		}
 		
@@ -781,8 +987,16 @@ public:
 			if ((pos = tr->find(id)) == -1) return false; //ne postoji
 
 			tr->Delete(m, pos);
+			while(!deleteStack->empty())
+			{
+				Node* n = deleteStack->top();
+				deleteStack->pop();
+				n->Delete(m, 0);
+			}
 		}
 	}
+
+
 
 	~IndexTree() {
 		if (root == nullptr) 
@@ -944,9 +1158,37 @@ void main() {
 			cout << "Pretraga zavrsena u " << brKoraka << " koraka" << endl;
 			continue;
 		}
+		if(oc == 8) { //Search k kljuceva
+			int k;
+			cout << "k: ";
+			cin >> k;
+			int ukBrKoraka = 0;
+			vector<uint64_t> keys = vector<uint64_t>();
+			for (int i = 0; i < k; i++) {
+				uint64_t pk;
+				cout << "Primarni kljuc : " << (i + 1) << " : ";
+				cin >> pk;
+				keys.push_back(pk);
+			}
 
+			//C_ID|C_F_NAME|C_L_NAME|C_EMAIL|C_AD_ID 
+			ofstream file = ofstream("output.txt");
+			file << "C_ID|C_F_NAME|C_L_NAME|C_EMAIL|C_AD_ID\n";
+			for (int i = 0; i < k; i++) {
+				int brKoraka = 0;
+				Node* n = tree->Search(keys[i], brKoraka);
+				if (n) {
+					ukBrKoraka += brKoraka;
+					Data* d = n->data[n->find(keys[i])];					
+					file << keys[i] << "|" << d->first << "|" << d->last << "|" << d->email << "|" << d->ad_id << endl;
+				}
+			}
+			cout << "Pretraga zavrsena u " << ukBrKoraka << " koraka" << endl;
+			continue;
+		}
+		if (oc == 9) { //Exit
+			delete tree;
+			break;
+		}
 	}
-
-
-
 }
